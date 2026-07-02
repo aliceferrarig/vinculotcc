@@ -1,0 +1,21 @@
+import { Filter, LoaderCircle, Search, Sparkles, TrendingUp } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { PsychologistCard } from '../../components/PsychologistCard'
+import { Badge, Button, Card, Input } from '../../components/ui'
+import { buscarPsicologos, type ListedPsychologist } from '../../services/psychologists'
+import { useCurrentProfile } from '../../hooks/useCurrentProfile'
+
+export function Discovery(){
+  const [query,setQuery]=useState(''); const [filter,setFilter]=useState('Todos'); const navigate=useNavigate()
+  const profile=useCurrentProfile()
+  const [professionals,setProfessionals]=useState<ListedPsychologist[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState('')
+  useEffect(()=>{buscarPsicologos().then(setProfessionals).catch(()=>setError('Não foi possível carregar os profissionais.')).finally(()=>setLoading(false))},[])
+  const filtered=useMemo(()=>professionals.filter(p=>(p.name+' '+p.specialties.join(' ')).toLowerCase().includes(query.toLowerCase())&&(filter==='Todos'||p.specialties.includes(filter))),[query,filter,professionals])
+  return <div className="mx-auto max-w-7xl"><p className="eyebrow">Descobrir</p><h1 className="mt-2 text-3xl font-semibold text-sage-700 sm:text-4xl">Que bom te ver por aqui{profile?.name?`, ${profile.name.split(' ')[0]}`:''}!</h1><p className="mt-2 text-sage-600">Explore profissionais e descubra o vínculo certo para você.</p>
+    <div className="mt-7 flex flex-col gap-3 sm:flex-row"><div className="flex-1"><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar por nome, especialidade ou palavra-chave..." icon={<Search size={18}/>}/></div><Button variant="outline"><Filter size={17}/>Filtros</Button></div>
+    <Card className="relative mt-5 overflow-hidden bg-gradient-to-r from-white to-sage-100 p-6"><div className="leaf -right-2 -top-10 scale-75"/><div className="relative flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center"><div className="flex items-center gap-4"><span className="grid h-12 w-12 place-items-center rounded-full bg-sage-100 text-sage-700"><Sparkles/></span><div><h2 className="font-semibold">Encontre seu vínculo ideal</h2><p className="text-sm text-sage-600">Responda algumas perguntas e receba recomendações personalizadas.</p></div></div><Button onClick={()=>navigate('/cliente/triagem')}>Iniciar triagem <span>→</span></Button></div></Card>
+    <section className="mt-8"><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-lg font-semibold"><TrendingUp size={19}/>Especialidades mais buscadas</h2></div><div className="scrollbar-none mt-4 flex gap-2 overflow-x-auto pb-2">{['Todos','Ansiedade','Relacionamentos','Autoestima','TDAH','Burnout','Depressão','Luto'].map(s=><button key={s} onClick={()=>setFilter(s)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm ${filter===s?'bg-sage-600 text-white':'bg-white text-sage-700'}`}>{s}</button>)}</div></section>
+    <section className="mt-8"><div className="mb-4 flex items-center justify-between"><div><Badge>Ranking da comunidade</Badge><h2 className="mt-2 text-xl font-semibold">Psicólogos mais procurados</h2><p className="mt-1 text-sm text-sage-500">Perfis reais cadastrados pelos profissionais na plataforma.</p></div>{!loading&&<span className="text-sm text-sage-500">{filtered.length} encontrados</span>}</div>{loading?<Card className="flex min-h-48 items-center justify-center"><LoaderCircle className="animate-spin text-sage-500"/></Card>:error?<Card className="p-10 text-center"><h3 className="font-semibold">Não conseguimos carregar os profissionais</h3><p className="mt-2 text-sm text-sage-500">{error}</p></Card>:filtered.length?<div className="grid gap-4 xl:grid-cols-2">{filtered.map(p=><PsychologistCard key={p.id} person={p}/>)}</div>:<Card className="p-10 text-center"><Search className="mx-auto text-sage-300" size={36}/><h3 className="mt-4 font-semibold">Nenhum psicólogo cadastrado</h3><p className="mt-2 text-sm text-sage-500">Quando os profissionais concluírem o cadastro, seus perfis aparecerão aqui.</p></Card>}</section>
+  </div>
+}

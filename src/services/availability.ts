@@ -1,0 +1,17 @@
+import { supabase } from '../lib/supabase'
+
+export type AvailabilitySlot={id:string;time:string;status:string}
+
+export async function getAvailability(psychologistId:string,date:string):Promise<AvailabilitySlot[]>{
+  const {data,error}=await supabase.from('disponibilidades').select('id,hora_inicio,status').eq('psicologo_id',psychologistId).eq('data',date).order('hora_inicio')
+  if(error)throw error
+  return (data??[]).map(item=>({id:item.id,time:String(item.hora_inicio).slice(0,5),status:item.status}))
+}
+
+export async function addAvailability(psychologistId:string,date:string,time:string){
+  const [hours,minutes]=time.split(':').map(Number);const end=hours*60+minutes+50;const endTime=`${String(Math.floor(end/60)).padStart(2,'0')}:${String(end%60).padStart(2,'0')}`
+  const {error}=await supabase.from('disponibilidades').insert({psicologo_id:psychologistId,data:date,hora_inicio:time,hora_fim:endTime,status:'disponivel'})
+  if(error)throw error
+}
+
+export async function deleteAvailability(id:string){const {error}=await supabase.from('disponibilidades').delete().eq('id',id);if(error)throw error}

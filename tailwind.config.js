@@ -1,0 +1,12 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: { sage: { 50:'#f5f7f5',100:'#e9eeeb',200:'#d6e0da',300:'#bacac1',400:'#95ab9e',500:'#718a7b',600:'#587064',700:'#475b52',800:'#3b4b44',900:'#323f3a' }, cream:'#f5eee4', ink:'#31423a' },
+      boxShadow: { soft:'0 12px 35px rgba(55,72,63,.09)', card:'0 6px 20px rgba(55,72,63,.07)' },
+      fontFamily: { sans:['Inter','ui-sans-serif','system-ui','sans-serif'], serif:['Georgia','ui-serif','serif'] }
+    }
+  },
+  plugins: []
+}
