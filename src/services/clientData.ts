@@ -29,8 +29,8 @@ export async function getClientAppointments():Promise<ClientAppointment[]>{
 
 export async function getClientProfile(){
   const {data:{user}}=await supabase.auth.getUser();if(!user)throw new Error('Usuário não autenticado.')
-  const {data,error}=await supabase.from('perfis').select('nome,telefone,data_nascimento').eq('id',user.id).single();if(error)throw error
-  return{name:data.nome,email:user.email??'',phone:data.telefone??'',birthDate:data.data_nascimento??''}
+  const {data,error}=await supabase.from('perfis').select('nome,telefone,data_nascimento,foto_url').eq('id',user.id).single();if(error)throw error
+  return{name:data.nome,email:user.email??'',phone:data.telefone??'',birthDate:data.data_nascimento??'',avatarUrl:data.foto_url??''}
 }
 
 export async function saveClientProfile(input:{name:string;phone:string;birthDate:string}){

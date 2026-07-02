@@ -20,7 +20,8 @@ export function useCurrentProfile() {
       if(data&&active)setProfile({id:data.id,name:data.nome,role:data.tipo_usuario,avatarUrl:data.foto_url})
     }
     load()
-    return()=>{active=false}
+    window.addEventListener('vinculo:profile-updated',load)
+    return()=>{active=false;window.removeEventListener('vinculo:profile-updated',load)}
   },[])
 
   return profile

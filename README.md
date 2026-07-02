@@ -27,6 +27,10 @@ Psicólogo → Dashboard → Perfil / Disponibilidade / Agenda / Solicitações 
 
 O cadastro de psicólogo cria automaticamente o usuário, perfil profissional e especialidades. Os novos perfis aparecem em **Psicólogos mais procurados**; não existe mais um perfil padrão da Ana Carolina.
 
+Após o primeiro login, ambos os tipos de conta passam pela etapa de foto. Para psicólogos ela é obrigatória e o perfil permanece oculto da descoberta até o upload; para clientes ela é opcional.
+
+Antes do upload, o editor de imagem permite aplicar zoom e reposicionar o enquadramento horizontal e verticalmente. O recorte quadrado é gerado no navegador e só então enviado ao Storage.
+
 ## Executar
 
 ```bash

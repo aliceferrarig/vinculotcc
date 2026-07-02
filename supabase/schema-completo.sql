@@ -212,14 +212,16 @@ begin
       estado_crp,
       biografia,
       modalidade,
-      valor_consulta
+      valor_consulta,
+      perfil_ativo
     ) values (
       new.id,
       new.raw_user_meta_data ->> 'crp',
       new.raw_user_meta_data ->> 'estado_crp',
       new.raw_user_meta_data ->> 'biografia',
       coalesce(new.raw_user_meta_data ->> 'modalidade', 'online'),
-      coalesce((new.raw_user_meta_data ->> 'valor_consulta')::numeric, 0)
+      coalesce((new.raw_user_meta_data ->> 'valor_consulta')::numeric, 0),
+      false
     )
     returning id into novo_psicologo_id;
 

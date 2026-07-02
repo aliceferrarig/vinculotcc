@@ -4,6 +4,7 @@ import { ClientLayout } from './components/layouts/ClientLayout'
 import { PsychologistLayout } from './components/layouts/PsychologistLayout'
 import { Landing } from './pages/Landing'
 import { Login, Register } from './pages/auth/AuthPages'
+import { ProfilePhotoSetup } from './pages/auth/ProfilePhotoSetup'
 import { Discovery } from './pages/client/Discovery'
 import { Screening } from './pages/client/Screening'
 import { Results } from './pages/client/Results'
@@ -18,7 +19,7 @@ import { ProfessionalUtilityPage } from './pages/psychologist/ProfessionalUtilit
 
 export default function App(){return <Routes>
   <Route path="/" element={<Landing/>}/>
-  <Route element={<AuthLayout/>}><Route path="/entrar" element={<Login/>}/><Route path="/cadastro/:role" element={<Register/>}/></Route>
+  <Route element={<AuthLayout/>}><Route path="/entrar" element={<Login/>}/><Route path="/cadastro/:role" element={<Register/>}/><Route path="/completar-perfil" element={<ProfilePhotoSetup/>}/></Route>
   <Route path="/cliente" element={<ClientLayout/>}>
     <Route index element={<Navigate to="descobrir" replace/>}/><Route path="descobrir" element={<Discovery/>}/><Route path="triagem" element={<Screening/>}/><Route path="resultados" element={<Results/>}/><Route path="psicologos/:id" element={<PsychologistProfile/>}/><Route path="agendar/:id" element={<Booking/>}/>
     <Route path="favoritos" element={<ClientUtilityPage type="favoritos"/>}/><Route path="agendamentos" element={<ClientUtilityPage type="agendamentos"/>}/><Route path="mensagens" element={<ClientUtilityPage type="mensagens"/>}/><Route path="perfil" element={<ClientUtilityPage type="perfil"/>}/>

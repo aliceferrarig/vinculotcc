@@ -20,6 +20,7 @@ export async function signUp(input: SignUpInput) {
     email: input.email,
     password: input.password,
     options: {
+      emailRedirectTo: `${window.location.origin}/entrar`,
       data: {
         nome: input.name,
         tipo_usuario: input.role,
@@ -43,12 +44,12 @@ export async function signIn(email: string, password: string) {
 
   const { data: profile, error: profileError } = await supabase
     .from('perfis')
-    .select('tipo_usuario')
+    .select('tipo_usuario, foto_url')
     .eq('id', data.user.id)
     .single()
 
   if (profileError) throw profileError
-  return { ...data, role: profile.tipo_usuario as UserRole }
+  return { ...data, role: profile.tipo_usuario as UserRole, avatarUrl: profile.foto_url as string|null }
 }
 
 export async function signOut() {

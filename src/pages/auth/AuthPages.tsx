@@ -21,7 +21,7 @@ export function Login(){
         setError(`Esta conta está cadastrada como ${result.role==='cliente'?'cliente':'psicólogo(a)'}.`)
         return
       }
-      navigate(result.role==='cliente'?'/cliente/descobrir':'/psicologo/dashboard')
+      navigate(result.avatarUrl?(result.role==='cliente'?'/cliente/descobrir':'/psicologo/dashboard'):'/completar-perfil')
     }catch{
       setError('E-mail ou senha incorretos. Confira os dados e tente novamente.')
     }finally{setLoading(false)}
@@ -50,7 +50,7 @@ export function Register(){
         navigate('/entrar')
         return
       }
-      navigate(isPsych?'/psicologo/dashboard':'/cliente/descobrir')
+      navigate('/completar-perfil')
     }catch(exception){
       setError(exception instanceof Error?exception.message:'Não foi possível concluir o cadastro.')
     }finally{setLoading(false)}
