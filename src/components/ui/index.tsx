@@ -1,8 +1,9 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { X } from 'lucide-react'
+import vinculoLogo from '../../assets/logo-vinculo.png'
 
 export function Logo({ light=false }: { light?: boolean }) {
-  return <span className={`font-serif text-2xl tracking-[-.04em] ${light?'text-white':'text-sage-700'}`}>vínculo <span className="text-base">♡</span></span>
+  return <img src={vinculoLogo} alt="Vínculo" className={`h-10 w-auto max-w-[170px] object-contain ${light?'brightness-0 invert':''}`}/>
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?:'primary'|'outline'|'ghost'|'soft'; full?:boolean }

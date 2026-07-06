@@ -243,6 +243,17 @@ create trigger criar_perfil_apos_cadastro
   after insert on auth.users
   for each row execute procedure public.criar_perfil_novo_usuario();
 
+create or replace function public.garantir_meu_perfil()
+returns void language plpgsql security definer set search_path='' as $$
+begin
+  insert into public.perfis(id,nome,tipo_usuario)
+  select u.id,
+    coalesce(nullif(u.raw_user_meta_data->>'nome',''),split_part(u.email,'@',1),'Usuário'),
+    case when u.raw_user_meta_data->>'tipo_usuario'='psicologo' then 'psicologo' else 'cliente' end
+  from auth.users u where u.id=auth.uid()
+  on conflict(id) do nothing;
+end; $$;
+
 create or replace function public.atualizar_updated_at()
 returns trigger
 language plpgsql
@@ -268,6 +279,33 @@ create trigger avaliacoes_updated_at
 create trigger assinaturas_updated_at
   before update on public.assinaturas
   for each row execute procedure public.atualizar_updated_at();
+
+-- Reserva o horário e cria o agendamento em uma única transação segura.
+create or replace function public.criar_agendamento(p_disponibilidade_id uuid, p_modalidade text default 'online')
+returns uuid language plpgsql security definer set search_path = public, auth as $$
+declare v_cliente uuid:=auth.uid(); v_slot public.disponibilidades%rowtype; v_psicologo public.psicologos%rowtype; v_id uuid;
+begin
+  if v_cliente is null then raise exception 'Faça login para agendar.'; end if;
+  if not exists(select 1 from public.perfis where id=v_cliente and tipo_usuario='cliente') then raise exception 'Somente clientes podem agendar.'; end if;
+  if p_modalidade not in ('online','presencial') then raise exception 'Modalidade inválida.'; end if;
+  select * into v_slot from public.disponibilidades where id=p_disponibilidade_id for update;
+  if not found or v_slot.status<>'disponivel' then raise exception 'Este horário não está mais disponível.'; end if;
+  if v_slot.data<current_date then raise exception 'Não é possível agendar uma data passada.'; end if;
+  select * into v_psicologo from public.psicologos where id=v_slot.psicologo_id and perfil_ativo=true;
+  if not found then raise exception 'O perfil profissional não está ativo.'; end if;
+  if v_psicologo.modalidade<>'ambos' and v_psicologo.modalidade<>p_modalidade then raise exception 'Modalidade não oferecida.'; end if;
+  insert into public.agendamentos(cliente_id,psicologo_id,disponibilidade_id,data_consulta,hora_inicio,hora_fim,modalidade,valor,status)
+  values(v_cliente,v_slot.psicologo_id,v_slot.id,v_slot.data,v_slot.hora_inicio,v_slot.hora_fim,p_modalidade,v_psicologo.valor_consulta,'pendente') returning id into v_id;
+  update public.disponibilidades set status='reservado' where id=v_slot.id; return v_id;
+end; $$;
+
+create or replace function public.sincronizar_disponibilidade_agendamento()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if new.disponibilidade_id is not null and new.status='cancelado' and old.status<>'cancelado' then update public.disponibilidades set status='disponivel' where id=new.disponibilidade_id; end if;
+  return new;
+end; $$;
+create trigger sincronizar_disponibilidade_apos_agendamento after update of status on public.agendamentos for each row execute procedure public.sincronizar_disponibilidade_agendamento();
 
 -- =========================================================
 -- ROW LEVEL SECURITY (RLS)
@@ -303,6 +341,12 @@ create policy "Usuário atualiza o próprio perfil"
 on public.perfis for update to authenticated
 using (id = (select auth.uid()))
 with check (id = (select auth.uid()));
+
+create policy "Participantes visualizam perfis relacionados"
+on public.perfis for select to authenticated using (
+  exists(select 1 from public.agendamentos a join public.psicologos ps on ps.id=a.psicologo_id where (a.cliente_id=perfis.id and ps.perfil_id=(select auth.uid())) or (ps.perfil_id=perfis.id and a.cliente_id=(select auth.uid())))
+  or exists(select 1 from public.mensagens m where (m.remetente_id=(select auth.uid()) and m.destinatario_id=perfis.id) or (m.destinatario_id=(select auth.uid()) and m.remetente_id=perfis.id))
+);
 
 -- PSICÓLOGOS
 create policy "Usuários visualizam psicólogos ativos"
@@ -533,6 +577,8 @@ with check (
 -- =========================================================
 
 grant usage on schema public to authenticated;
+grant execute on function public.criar_agendamento(uuid,text) to authenticated;
+grant execute on function public.garantir_meu_perfil() to authenticated;
 grant select, insert, update, delete on table
   public.perfis,
   public.psicologos,

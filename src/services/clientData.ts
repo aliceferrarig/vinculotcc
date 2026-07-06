@@ -19,12 +19,16 @@ export async function getFavorites():Promise<ListedPsychologist[]>{
   return (await buscarPsicologos()).filter(item=>ids.has(item.id))
 }
 
-export type ClientAppointment={id:string;date:string;time:string;mode:string;status:string;psychologist:{id:string;name:string;image:string}}
+export type ClientAppointment={id:string;date:string;time:string;mode:string;status:string;reviewed:boolean;psychologist:{id:string;name:string;image:string}}
 export async function getClientAppointments():Promise<ClientAppointment[]>{
   const userId=await currentUserId()
-  const {data,error}=await supabase.from('agendamentos').select(`id,data_consulta,hora_inicio,modalidade,status,psicologos(id,perfis(nome,foto_url))`).eq('cliente_id',userId).order('data_consulta',{ascending:true})
+  const {data,error}=await supabase.from('agendamentos').select(`id,data_consulta,hora_inicio,modalidade,status,psicologos(id,perfis(nome,foto_url)),avaliacoes(id)`).eq('cliente_id',userId).order('data_consulta',{ascending:true})
   if(error)throw error
-  return (data??[]).map((row:any)=>{const psych=Array.isArray(row.psicologos)?row.psicologos[0]:row.psicologos;const profile=Array.isArray(psych?.perfis)?psych.perfis[0]:psych?.perfis;return{id:row.id,date:row.data_consulta,time:String(row.hora_inicio).slice(0,5),mode:row.modalidade,status:row.status,psychologist:{id:psych?.id,name:profile?.nome??'Profissional',image:profile?.foto_url||placeholderAvatar}}})
+  return (data??[]).map((row:any)=>{const psych=Array.isArray(row.psicologos)?row.psicologos[0]:row.psicologos;const profile=Array.isArray(psych?.perfis)?psych.perfis[0]:psych?.perfis;return{id:row.id,date:row.data_consulta,time:String(row.hora_inicio).slice(0,5),mode:row.modalidade,status:row.status,reviewed:Boolean(row.avaliacoes?.length),psychologist:{id:psych?.id,name:profile?.nome??'Profissional',image:profile?.foto_url||placeholderAvatar}}})
+}
+
+export async function createReview(appointment:ClientAppointment,rating:number,comment:string){
+  const userId=await currentUserId();const {error}=await supabase.from('avaliacoes').insert({agendamento_id:appointment.id,cliente_id:userId,psicologo_id:appointment.psychologist.id,nota:rating,comentario:comment.trim()||null});if(error)throw error
 }
 
 export async function getClientProfile(){

@@ -1,11 +1,11 @@
 import { Heart, Monitor, Star } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Psychologist } from '../data/mockData'
+import type { ListedPsychologist } from '../services/psychologists'
 import { Badge, Button, Card } from './ui'
 import { toggleFavorite } from '../services/clientData'
 
-export function PsychologistCard({ person, compact=false, showMatch=false }: { person:Psychologist; compact?:boolean; showMatch?:boolean }) {
+export function PsychologistCard({ person, compact=false, showMatch=false }: { person:ListedPsychologist; compact?:boolean; showMatch?:boolean }) {
   const navigate=useNavigate()
   const [favorite,setFavorite]=useState(false)
   const handleFavorite=async()=>{try{setFavorite(await toggleFavorite(person.id))}catch{/* A tela mantém o estado anterior se a operação falhar. */}}

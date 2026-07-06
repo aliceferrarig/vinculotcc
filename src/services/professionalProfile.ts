@@ -76,5 +76,7 @@ export async function uploadProfessionalAvatar(file:File){
   const {data}=supabase.storage.from('avatars').getPublicUrl(path)
   const {error:updateError}=await supabase.from('perfis').update({foto_url:data.publicUrl}).eq('id',user.id)
   if(updateError)throw updateError
+  const {error:publishError}=await supabase.from('psicologos').update({perfil_ativo:true}).eq('perfil_id',user.id)
+  if(publishError)throw publishError
   return data.publicUrl
 }

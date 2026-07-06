@@ -1,11 +1,25 @@
 import { supabase } from '../lib/supabase'
 
-export type AvailabilitySlot={id:string;time:string;status:string}
+export type AvailabilitySlot={id:string;date:string;time:string;endTime:string;status:string}
 
 export async function getAvailability(psychologistId:string,date:string):Promise<AvailabilitySlot[]>{
   const {data,error}=await supabase.from('disponibilidades').select('id,hora_inicio,status').eq('psicologo_id',psychologistId).eq('data',date).order('hora_inicio')
   if(error)throw error
-  return (data??[]).map(item=>({id:item.id,time:String(item.hora_inicio).slice(0,5),status:item.status}))
+  return (data??[]).map(item=>({id:item.id,date,time:String(item.hora_inicio).slice(0,5),endTime:'',status:item.status}))
+}
+
+export async function getUpcomingAvailability(psychologistId:string):Promise<AvailabilitySlot[]>{
+  const today=new Date().toISOString().slice(0,10)
+  const {data,error}=await supabase.from('disponibilidades').select('id,data,hora_inicio,hora_fim,status').eq('psicologo_id',psychologistId).eq('status','disponivel').gte('data',today).order('data').order('hora_inicio')
+  if(error)throw error
+  return (data??[]).map(item=>({id:item.id,date:item.data,time:String(item.hora_inicio).slice(0,5),endTime:String(item.hora_fim).slice(0,5),status:item.status}))
+}
+
+export async function getAllOwnAvailability(psychologistId:string):Promise<AvailabilitySlot[]>{
+  const today=new Date().toISOString().slice(0,10)
+  const {data,error}=await supabase.from('disponibilidades').select('id,data,hora_inicio,hora_fim,status').eq('psicologo_id',psychologistId).gte('data',today).order('data').order('hora_inicio')
+  if(error)throw error
+  return (data??[]).map(item=>({id:item.id,date:item.data,time:String(item.hora_inicio).slice(0,5),endTime:String(item.hora_fim).slice(0,5),status:item.status}))
 }
 
 export async function addAvailability(psychologistId:string,date:string,time:string){

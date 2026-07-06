@@ -1,13 +1,14 @@
-import { CalendarDays, Camera, Heart, LoaderCircle, MessageCircle, Save } from 'lucide-react'
+import { CalendarDays, Camera, Heart, LoaderCircle, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PsychologistCard } from '../../components/PsychologistCard'
-import { Button, Card, EmptyState, Input } from '../../components/ui'
-import { getClientAppointments, getClientProfile, getFavorites, saveClientProfile, type ClientAppointment } from '../../services/clientData'
+import { Button, Card, EmptyState, Input, Modal } from '../../components/ui'
+import { createReview, getClientAppointments, getClientProfile, getFavorites, saveClientProfile, type ClientAppointment } from '../../services/clientData'
 import type { ListedPsychologist } from '../../services/psychologists'
 import { uploadProfilePhoto } from '../../services/profilePhoto'
 import placeholderAvatar from '../../assets/avatar-placeholder.svg'
 import { PhotoAdjuster } from '../../components/PhotoAdjuster'
+import { ChatPage } from '../../components/ChatPage'
 
 export function ClientUtilityPage({type}:{type:'favoritos'|'agendamentos'|'mensagens'|'perfil'}){
   if(type==='favoritos')return <FavoritesPage/>
@@ -23,12 +24,13 @@ function FavoritesPage(){
 }
 
 function AppointmentsPage(){
-  const [items,setItems]=useState<ClientAppointment[]>([]);const [loading,setLoading]=useState(true);const navigate=useNavigate()
-  useEffect(()=>{getClientAppointments().then(setItems).finally(()=>setLoading(false))},[])
-  return <div className="mx-auto max-w-4xl"><h1 className="text-3xl font-semibold">Seus agendamentos</h1>{loading?<LoaderCircle className="mx-auto mt-20 animate-spin text-sage-500"/>:items.length?<div className="mt-6 space-y-4">{items.map(item=><Card key={item.id} className="flex flex-col justify-between gap-5 p-6 sm:flex-row sm:items-center"><div className="flex items-center gap-4"><img src={item.psychologist.image} className="h-16 w-16 rounded-full object-cover object-top"/><div><h2 className="font-semibold">{item.psychologist.name}</h2><p className="text-sm text-sage-500">{new Date(`${item.date}T12:00:00`).toLocaleDateString('pt-BR')} · {item.time}</p><p className="text-xs capitalize text-sage-500">Consulta {item.mode} · {item.status}</p></div></div><Button variant="outline" onClick={()=>navigate(`/cliente/psicologos/${item.psychologist.id}`)}>Ver profissional</Button></Card>)}</div>:<div className="mt-6"><EmptyState icon={<CalendarDays/>} title="Nenhuma consulta agendada" text="Quando você solicitar uma sessão, ela aparecerá aqui." action={<Button onClick={()=>navigate('/cliente/descobrir')}>Encontrar psicólogo</Button>}/></div>}</div>
+  const [items,setItems]=useState<ClientAppointment[]>([]);const [loading,setLoading]=useState(true);const [reviewing,setReviewing]=useState<ClientAppointment|null>(null);const [rating,setRating]=useState(5);const [comment,setComment]=useState('');const navigate=useNavigate()
+  async function refresh(){setItems(await getClientAppointments())}useEffect(()=>{refresh().finally(()=>setLoading(false))},[])
+  async function submitReview(){if(!reviewing)return;await createReview(reviewing,rating,comment);setReviewing(null);setComment('');await refresh()}
+  return <div className="mx-auto max-w-4xl"><h1 className="text-3xl font-semibold">Seus agendamentos</h1>{loading?<LoaderCircle className="mx-auto mt-20 animate-spin text-sage-500"/>:items.length?<div className="mt-6 space-y-4">{items.map(item=><Card key={item.id} className="flex flex-col justify-between gap-5 p-6 sm:flex-row sm:items-center"><div className="flex items-center gap-4"><img src={item.psychologist.image} className="h-16 w-16 rounded-full object-cover object-top"/><div><h2 className="font-semibold">{item.psychologist.name}</h2><p className="text-sm text-sage-500">{new Date(`${item.date}T12:00:00`).toLocaleDateString('pt-BR')} · {item.time}</p><p className="text-xs capitalize text-sage-500">Consulta {item.mode} · {item.status}</p></div></div><div className="flex gap-2">{item.status==='concluido'&&!item.reviewed&&<Button onClick={()=>setReviewing(item)}>Avaliar</Button>}<Button variant="outline" onClick={()=>navigate(`/cliente/psicologos/${item.psychologist.id}`)}>Ver profissional</Button></div></Card>)}</div>:<div className="mt-6"><EmptyState icon={<CalendarDays/>} title="Nenhuma consulta agendada" text="Quando você solicitar uma sessão, ela aparecerá aqui." action={<Button onClick={()=>navigate('/cliente/descobrir')}>Encontrar psicólogo</Button>}/></div>}<Modal open={Boolean(reviewing)} onClose={()=>setReviewing(null)}><h2 className="text-2xl font-semibold">Avaliar consulta</h2><p className="mt-2 text-sm text-sage-500">A avaliação ficará ligada a esta consulta concluída.</p><div className="mt-6 flex gap-2">{[1,2,3,4,5].map(value=><button key={value} onClick={()=>setRating(value)} className={`text-3xl ${value<=rating?'text-amber-400':'text-sage-200'}`}>★</button>)}</div><textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Conte como foi sua experiência (opcional)" className="mt-5 min-h-28 w-full rounded-xl border border-sage-200 p-4"/><Button full className="mt-5" onClick={submitReview}>Enviar avaliação</Button></Modal></div>
 }
 
-function MessagesPage(){return <div className="mx-auto max-w-4xl"><h1 className="text-3xl font-semibold">Mensagens</h1><div className="mt-6"><EmptyState icon={<MessageCircle/>} title="Nenhuma conversa iniciada" text="As conversas com seus profissionais aparecerão aqui depois do primeiro contato."/></div></div>}
+function MessagesPage(){return <ChatPage/>}
 
 function ProfilePage(){
   const [form,setForm]=useState({name:'',email:'',phone:'',birthDate:'',avatarUrl:''});const [loading,setLoading]=useState(true);const [saved,setSaved]=useState(false);const [uploading,setUploading]=useState(false);const [message,setMessage]=useState('');const [editingFile,setEditingFile]=useState<File|null>(null)

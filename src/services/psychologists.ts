@@ -1,9 +1,14 @@
 import placeholderAvatar from '../assets/avatar-placeholder.svg'
-import type { Psychologist } from '../data/mockData'
 import { supabase } from '../lib/supabase'
+
+type Psychologist = {
+  id:string; profileId:string; name:string; crp:string; specialties:string[]; rating:number; reviews:number;
+  sessions:number; mode:string; price:number; match:number; image:string; experience:number;
+}
 
 type PsychologistRow = {
   id: string
+  perfil_id: string
   crp: string
   biografia: string | null
   modalidade: string
@@ -38,6 +43,7 @@ function mapPsychologist(row: PsychologistRow): ListedPsychologist {
 
   return {
     id: row.id,
+    profileId: row.perfil_id,
     name: profile?.nome ?? 'Profissional sem nome',
     crp: row.crp,
     specialties,
@@ -57,6 +63,7 @@ function mapPsychologist(row: PsychologistRow): ListedPsychologist {
 
 const selection = `
   id,
+  perfil_id,
   crp,
   biografia,
   modalidade,
