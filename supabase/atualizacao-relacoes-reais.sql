@@ -62,10 +62,17 @@ create trigger sincronizar_disponibilidade_apos_agendamento
 after update of status on public.agendamentos
 for each row execute procedure public.sincronizar_disponibilidade_agendamento();
 
+drop policy if exists "Usuário visualiza o próprio perfil e perfis profissionais" on public.perfis;
 drop policy if exists "Participantes visualizam perfis relacionados" on public.perfis;
-create policy "Participantes visualizam perfis relacionados"
+drop policy if exists "Usuários visualizam perfis permitidos" on public.perfis;
+create policy "Usuários visualizam perfis permitidos"
 on public.perfis for select to authenticated using (
-  exists(
+  id = (select auth.uid())
+  or exists(
+    select 1 from public.psicologos p
+    where p.perfil_id = perfis.id and p.perfil_ativo = true
+  )
+  or exists(
     select 1 from public.agendamentos a join public.psicologos ps on ps.id=a.psicologo_id
     where (a.cliente_id=perfis.id and ps.perfil_id=(select auth.uid()))
        or (ps.perfil_id=perfis.id and a.cliente_id=(select auth.uid()))
@@ -74,5 +81,14 @@ on public.perfis for select to authenticated using (
     select 1 from public.mensagens m
     where (m.remetente_id=(select auth.uid()) and m.destinatario_id=perfis.id)
        or (m.destinatario_id=(select auth.uid()) and m.remetente_id=perfis.id)
+  )
+);
+
+drop policy if exists "Psicólogo visualiza favoritos do próprio perfil" on public.favoritos;
+create policy "Psicólogo visualiza favoritos do próprio perfil"
+on public.favoritos for select to authenticated using (
+  exists(
+    select 1 from public.psicologos p
+    where p.id = favoritos.psicologo_id and p.perfil_id = (select auth.uid())
   )
 );

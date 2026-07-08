@@ -1,0 +1,15 @@
+import { CalendarDays, Clock, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Badge, Button, Card, Input } from '../../components/ui'
+import { addAvailability, deleteAvailability, getAllOwnAvailability, type AvailabilitySlot } from '../../services/availability'
+import { getOwnProfessionalProfile } from '../../services/professionalProfile'
+
+const today=new Date().toISOString().slice(0,10)
+export function Availability(){
+  const [psychologistId,setPsychologistId]=useState('');const [date,setDate]=useState(today);const [time,setTime]=useState('09:00');const [slots,setSlots]=useState<AvailabilitySlot[]>([]);const [loading,setLoading]=useState(true);const [message,setMessage]=useState('')
+  async function refresh(id=psychologistId){if(id)setSlots(await getAllOwnAvailability(id))}
+  useEffect(()=>{getOwnProfessionalProfile().then(async profile=>{setPsychologistId(profile.id);await refresh(profile.id)}).catch(()=>setMessage('Não foi possível carregar sua agenda.')).finally(()=>setLoading(false))},[])
+  async function add(){if(!psychologistId||!date||!time)return;setMessage('');try{await addAvailability(psychologistId,date,time);await refresh();setMessage('Horário publicado. Ele já está visível para os clientes.')}catch{setMessage('Esse horário já existe ou não pôde ser salvo.')}}
+  async function remove(id:string){await deleteAvailability(id);await refresh()}
+  return <div className="mx-auto max-w-5xl"><h1 className="text-3xl font-semibold text-sage-700">Disponibilidade</h1><p className="mt-2 text-sage-600">Os horários publicados aqui aparecem imediatamente no perfil e no agendamento dos clientes.</p><Card className="mt-7 p-6"><h2 className="flex items-center gap-2 font-semibold"><Plus size={18}/>Publicar novo horário</h2><div className="mt-5 grid gap-4 sm:grid-cols-[1fr_1fr_auto]"><Input label="Data" type="date" min={today} value={date} onChange={e=>setDate(e.target.value)}/><Input label="Horário" type="time" value={time} onChange={e=>setTime(e.target.value)}/><Button className="self-end" onClick={add}>Adicionar</Button></div>{message&&<p className="mt-4 text-sm text-sage-600">{message}</p>}</Card><Card className="mt-5 overflow-hidden"><div className="border-b border-sage-100 p-5"><h2 className="flex items-center gap-2 font-semibold"><CalendarDays size={18}/>Próximos horários</h2></div>{loading?<p className="p-6 text-sage-500">Carregando...</p>:slots.length?slots.map(slot=><div key={slot.id} className="flex flex-wrap items-center gap-4 border-b border-sage-100 p-5 last:border-0"><strong>{new Date(`${slot.date}T12:00:00`).toLocaleDateString('pt-BR')}</strong><span className="flex items-center gap-1 text-sm"><Clock size={15}/>{slot.time}</span><Badge tone={slot.status==='disponivel'?'sage':'amber'}>{slot.status==='disponivel'?'Disponível':'Reservado'}</Badge>{slot.status==='disponivel'&&<button onClick={()=>remove(slot.id)} className="ml-auto rounded-full p-2 text-rose-600 hover:bg-rose-50" aria-label="Excluir horário"><Trash2 size={17}/></button>}</div>):<p className="p-8 text-center text-sage-500">Você ainda não publicou horários futuros.</p>}</Card></div>
+}

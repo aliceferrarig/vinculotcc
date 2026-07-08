@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 
 type Psychologist = {
   id:string; profileId:string; name:string; crp:string; specialties:string[]; rating:number; reviews:number;
-  sessions:number; mode:string; price:number; match:number; image:string; experience:number;
+  sessions:number; mode:string; rawMode:'online'|'presencial'|'ambos'; price:number; match:number; image:string; experience:number;
 }
 
 type PsychologistRow = {
@@ -29,6 +29,11 @@ export type ListedPsychologist = Psychologist & {
 
 const normalizeOne = <T,>(value: T | T[] | null): T | null => Array.isArray(value) ? value[0] ?? null : value
 
+function normalizeMode(value:string): 'online'|'presencial'|'ambos' {
+  if(value === 'presencial' || value === 'ambos') return value
+  return 'online'
+}
+
 function mapPsychologist(row: PsychologistRow): ListedPsychologist {
   const profile = normalizeOne(row.perfis)
   const reviews = row.avaliacoes ?? []
@@ -40,6 +45,7 @@ function mapPsychologist(row: PsychologistRow): ListedPsychologist {
     : 0
   const sessions = row.agendamentos?.length ?? 0
   const favorites = row.favoritos?.length ?? 0
+  const rawMode = normalizeMode(row.modalidade)
 
   return {
     id: row.id,
@@ -50,7 +56,8 @@ function mapPsychologist(row: PsychologistRow): ListedPsychologist {
     rating: Number(rating.toFixed(1)),
     reviews: reviews.length,
     sessions,
-    mode: row.modalidade === 'ambos' ? 'Online e presencial' : row.modalidade === 'presencial' ? 'Presencial' : 'Online',
+    mode: rawMode === 'ambos' ? 'Online e presencial' : rawMode === 'presencial' ? 'Presencial' : 'Online',
+    rawMode,
     price: Number(row.valor_consulta),
     match: 0,
     image: profile?.foto_url || placeholderAvatar,

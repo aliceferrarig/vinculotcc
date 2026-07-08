@@ -11,6 +11,7 @@ export type ProfessionalProfile = {
   price: number
   experience: number
   specialties: string[]
+  active: boolean
 }
 
 export async function getOwnProfessionalProfile(): Promise<ProfessionalProfile> {
@@ -18,7 +19,7 @@ export async function getOwnProfessionalProfile(): Promise<ProfessionalProfile> 
   if(!user)throw new Error('Usuário não autenticado.')
 
   const {data,error}=await supabase.from('psicologos').select(`
-    id, crp, estado_crp, biografia, modalidade, valor_consulta, anos_experiencia,
+    id, crp, estado_crp, biografia, modalidade, valor_consulta, anos_experiencia, perfil_ativo,
     perfis(nome, foto_url),
     psicologo_especialidades(especialidades(nome))
   `).eq('perfil_id',user.id).single()
@@ -35,6 +36,7 @@ export async function getOwnProfessionalProfile(): Promise<ProfessionalProfile> 
     modality:data.modalidade,
     price:Number(data.valor_consulta),
     experience:data.anos_experiencia,
+    active:Boolean(data.perfil_ativo),
     specialties:(data.psicologo_especialidades??[]).map((item:any)=>Array.isArray(item.especialidades)?item.especialidades[0]?.nome:item.especialidades?.nome).filter(Boolean),
   }
 }
@@ -46,6 +48,7 @@ export async function saveProfessionalProfile(profile:ProfessionalProfile){
   const {error:profileError}=await supabase.from('perfis').update({nome:profile.name}).eq('id',user.id)
   if(profileError)throw profileError
 
+  const shouldBeActive=Boolean(profile.avatarUrl)
   const {error:psychError}=await supabase.from('psicologos').update({
     crp:profile.crp,
     estado_crp:profile.crpState,
@@ -53,6 +56,7 @@ export async function saveProfessionalProfile(profile:ProfessionalProfile){
     modalidade:profile.modality,
     valor_consulta:profile.price,
     anos_experiencia:profile.experience,
+    perfil_ativo:shouldBeActive,
   }).eq('id',profile.id)
   if(psychError)throw psychError
 
@@ -78,5 +82,6 @@ export async function uploadProfessionalAvatar(file:File){
   if(updateError)throw updateError
   const {error:publishError}=await supabase.from('psicologos').update({perfil_ativo:true}).eq('perfil_id',user.id)
   if(publishError)throw publishError
+  window.dispatchEvent(new Event('vinculo:profile-updated'))
   return data.publicUrl
 }

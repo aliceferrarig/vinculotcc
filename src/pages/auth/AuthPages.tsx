@@ -1,26 +1,29 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Briefcase, Check, LoaderCircle, Lock, Mail, UserRound } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, Input, Stepper } from '../../components/ui'
-import { requestPasswordReset, signIn, signOut, signUp, type UserRole } from '../../services/auth'
+import { requestPasswordReset, resendConfirmation, signIn, signOut, signUp, type UserRole } from '../../services/auth'
 
 function loginErrorMessage(exception:unknown){
   const message=exception instanceof Error?exception.message:String(exception)
   if(/invalid login credentials/i.test(message))return 'E-mail ou senha incorretos. Se você acabou de criar a conta, confirme o e-mail antes de entrar.'
   if(/email not confirmed/i.test(message))return 'Seu e-mail ainda não foi confirmado. Abra a mensagem enviada pelo Supabase e confirme o cadastro.'
+  if(/email address not authorized/i.test(message))return 'O Supabase recusou este destinatário. Configure um SMTP personalizado para enviar confirmações a pessoas fora da equipe do projeto.'
+  if(/rate limit|too many requests|email rate limit exceeded/i.test(message))return 'O limite de e-mails do Supabase foi atingido. Aguarde um pouco ou configure um SMTP personalizado.'
   if(/failed to fetch|network|fetch failed/i.test(message))return 'Não foi possível conectar ao Supabase. Confira as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY na Vercel.'
   return message||'Não foi possível entrar. Tente novamente.'
 }
 
 export function Login(){
   const navigate=useNavigate()
+  const [params]=useSearchParams()
   const [role,setRole]=useState<UserRole>('cliente')
-  const [email,setEmail]=useState('')
+  const [email,setEmail]=useState(params.get('email')??'')
   const [password,setPassword]=useState('')
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
-  const [info,setInfo]=useState('')
+  const [info,setInfo]=useState(params.get('confirmacao')==='1'?'Cadastro realizado. Confirme seu e-mail para liberar a entrada. Se não recebeu, use “Reenviar confirmação”.':'')
 
   async function handleSubmit(event:FormEvent){
     event.preventDefault(); setLoading(true); setError('');setInfo('')
@@ -38,8 +41,9 @@ export function Login(){
   }
 
   async function resetPassword(){setError('');setInfo('');try{await requestPasswordReset(email);setInfo('Enviamos o link de recuperação para o seu e-mail.')}catch(exception){setError(loginErrorMessage(exception))}}
+  async function resend(){setError('');setInfo('');try{await resendConfirmation(email);setInfo('Solicitamos um novo e-mail de confirmação. Confira também a caixa de spam.')}catch(exception){setError(loginErrorMessage(exception))}}
 
-  return <Card className="mx-auto max-w-xl p-6 sm:p-9"><div className="text-center"><h1 className="text-3xl font-semibold text-sage-700">Bem-vindo(a) de volta</h1><p className="mt-2 text-sm text-sage-500">Entre para continuar sua jornada.</p></div><div className="mt-7 grid grid-cols-2 rounded-full bg-sage-50 p-1"><button type="button" onClick={()=>setRole('cliente')} className={`rounded-full py-2.5 text-sm ${role==='cliente'?'bg-white font-semibold shadow-sm':''}`}>Cliente</button><button type="button" onClick={()=>setRole('psicologo')} className={`rounded-full py-2.5 text-sm ${role==='psicologo'?'bg-white font-semibold shadow-sm':''}`}>Psicólogo</button></div><form className="mt-6 space-y-4" onSubmit={handleSubmit}><Input label="E-mail" type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" icon={<Mail size={18}/>}/><Input label="Senha" type="password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" icon={<Lock size={18}/>}/>{error&&<p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}{info&&<p className="rounded-xl bg-sage-50 p-3 text-sm text-sage-700">{info}</p>}<div className="text-right"><button type="button" onClick={resetPassword} className="text-xs font-semibold text-sage-600 underline">Esqueci minha senha</button></div><Button type="submit" full disabled={loading}>{loading&&<LoaderCircle className="animate-spin" size={17}/>}Entrar</Button></form><p className="mt-6 text-center text-sm text-sage-600">Não tem conta? <Link className="font-semibold underline" to={`/cadastro/${role}`}>Criar conta</Link></p><Link to="/" className="mt-3 block text-center text-xs text-sage-500">← Voltar à página inicial</Link></Card>
+  return <Card className="mx-auto max-w-xl p-6 sm:p-9"><div className="text-center"><h1 className="text-3xl font-semibold text-sage-700">Bem-vindo(a) de volta</h1><p className="mt-2 text-sm text-sage-500">Entre para continuar sua jornada.</p></div><div className="mt-7 grid grid-cols-2 rounded-full bg-sage-50 p-1"><button type="button" onClick={()=>setRole('cliente')} className={`rounded-full py-2.5 text-sm ${role==='cliente'?'bg-white font-semibold shadow-sm':''}`}>Cliente</button><button type="button" onClick={()=>setRole('psicologo')} className={`rounded-full py-2.5 text-sm ${role==='psicologo'?'bg-white font-semibold shadow-sm':''}`}>Psicólogo</button></div><form className="mt-6 space-y-4" onSubmit={handleSubmit}><Input label="E-mail" type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" icon={<Mail size={18}/>}/><Input label="Senha" type="password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" icon={<Lock size={18}/>}/>{error&&<p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}{info&&<p className="rounded-xl bg-sage-50 p-3 text-sm text-sage-700">{info}</p>}<div className="flex items-center justify-between gap-3"><button type="button" onClick={resend} className="text-xs font-semibold text-sage-600 underline">Reenviar confirmação</button><button type="button" onClick={resetPassword} className="text-xs font-semibold text-sage-600 underline">Esqueci minha senha</button></div><Button type="submit" full disabled={loading}>{loading&&<LoaderCircle className="animate-spin" size={17}/>}Entrar</Button></form><p className="mt-6 text-center text-sm text-sage-600">Não tem conta? <Link className="font-semibold underline" to={`/cadastro/${role}`}>Criar conta</Link></p><Link to="/" className="mt-3 block text-center text-xs text-sage-500">← Voltar à página inicial</Link></Card>
 }
 
 export function Register(){
@@ -58,13 +62,12 @@ export function Register(){
     try{
       const result=await signUp({name,email,password,role:isPsych?'psicologo':'cliente',crp,crpState,specialties:selected,modality,price:Number(price||0),bio})
       if(!result.session){
-        alert('Cadastro realizado! Confirme seu e-mail antes de entrar.')
-        navigate('/entrar')
+        navigate(`/entrar?confirmacao=1&email=${encodeURIComponent(email)}`)
         return
       }
       navigate('/completar-perfil')
     }catch(exception){
-      setError(exception instanceof Error?exception.message:'Não foi possível concluir o cadastro.')
+      setError(loginErrorMessage(exception))
     }finally{setLoading(false)}
   }
 

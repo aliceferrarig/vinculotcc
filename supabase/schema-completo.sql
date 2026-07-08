@@ -327,7 +327,7 @@ alter table public.planos enable row level security;
 alter table public.assinaturas enable row level security;
 
 -- PERFIS
-create policy "Usuário visualiza o próprio perfil e perfis profissionais"
+create policy "Usuários visualizam perfis permitidos"
 on public.perfis for select to authenticated
 using (
   id = (select auth.uid())
@@ -335,18 +335,25 @@ using (
     select 1 from public.psicologos p
     where p.perfil_id = perfis.id and p.perfil_ativo = true
   )
+  or exists (
+    select 1
+    from public.agendamentos a
+    join public.psicologos ps on ps.id = a.psicologo_id
+    where (a.cliente_id = perfis.id and ps.perfil_id = (select auth.uid()))
+       or (ps.perfil_id = perfis.id and a.cliente_id = (select auth.uid()))
+  )
+  or exists (
+    select 1
+    from public.mensagens m
+    where (m.remetente_id = (select auth.uid()) and m.destinatario_id = perfis.id)
+       or (m.destinatario_id = (select auth.uid()) and m.remetente_id = perfis.id)
+  )
 );
 
 create policy "Usuário atualiza o próprio perfil"
 on public.perfis for update to authenticated
 using (id = (select auth.uid()))
 with check (id = (select auth.uid()));
-
-create policy "Participantes visualizam perfis relacionados"
-on public.perfis for select to authenticated using (
-  exists(select 1 from public.agendamentos a join public.psicologos ps on ps.id=a.psicologo_id where (a.cliente_id=perfis.id and ps.perfil_id=(select auth.uid())) or (ps.perfil_id=perfis.id and a.cliente_id=(select auth.uid())))
-  or exists(select 1 from public.mensagens m where (m.remetente_id=(select auth.uid()) and m.destinatario_id=perfis.id) or (m.destinatario_id=(select auth.uid()) and m.remetente_id=perfis.id))
-);
 
 -- PSICÓLOGOS
 create policy "Usuários visualizam psicólogos ativos"
@@ -489,6 +496,15 @@ create policy "Cliente gerencia os próprios favoritos"
 on public.favoritos for all to authenticated
 using (cliente_id = (select auth.uid()))
 with check (cliente_id = (select auth.uid()));
+
+create policy "Psicólogo visualiza favoritos do próprio perfil"
+on public.favoritos for select to authenticated
+using (
+  exists (
+    select 1 from public.psicologos p
+    where p.id = favoritos.psicologo_id and p.perfil_id = (select auth.uid())
+  )
+);
 
 -- AVALIAÇÕES
 create policy "Usuários visualizam avaliações"
