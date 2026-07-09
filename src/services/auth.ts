@@ -17,7 +17,7 @@ type SignUpInput = {
 
 export async function signUp(input: SignUpInput) {
   const { data, error } = await supabase.auth.signUp({
-    email: input.email,
+    email: input.email.trim().toLowerCase(),
     password: input.password,
     options: {
       emailRedirectTo: `${window.location.origin}/entrar`,
@@ -39,44 +39,40 @@ export async function signUp(input: SignUpInput) {
 }
 
 export async function signIn(email: string, password: string) {
-  const normalizedEmail=email.trim().toLowerCase()
-  const { data, error } = await supabase.auth.signInWithPassword({ email:normalizedEmail, password })
+  const normalizedEmail = email.trim().toLowerCase()
+  const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
   if (error) throw error
 
-  let { data: profile, error: profileError } = await supabase
+  await supabase.rpc('garantir_meu_perfil')
+
+  const { data: profile, error: profileError } = await supabase
     .from('perfis')
     .select('tipo_usuario, foto_url')
     .eq('id', data.user.id)
     .maybeSingle()
 
-  if(profileError)throw new Error(`A autenticação funcionou, mas o perfil não pôde ser carregado: ${profileError.message}`)
-  if(!profile){
-    const {error:repairError}=await supabase.rpc('garantir_meu_perfil')
-    if(repairError)throw new Error('A conta existe no Auth, mas seu perfil não existe no banco. Execute o arquivo corrigir-login-perfis.sql no Supabase.')
-    const retry=await supabase.from('perfis').select('tipo_usuario, foto_url').eq('id',data.user.id).single()
-    profile=retry.data;profileError=retry.error
-  }
+  if (profileError) throw new Error(`A autenticação funcionou, mas o perfil não pôde ser carregado: ${profileError.message}`)
+  if (!profile) throw new Error('Não foi possível recuperar o perfil desta conta. Rode reset-banco-vinculo.sql no Supabase.')
 
-  if(profileError||!profile)throw new Error('Não foi possível recuperar o perfil desta conta.')
-  return { ...data, role: profile.tipo_usuario as UserRole, avatarUrl: profile.foto_url as string|null }
+  return { ...data, role: profile.tipo_usuario as UserRole, avatarUrl: profile.foto_url as string | null }
 }
 
-export async function requestPasswordReset(email:string){
-  const normalized=email.trim().toLowerCase()
-  if(!normalized)throw new Error('Digite seu e-mail primeiro.')
-  const {error}=await supabase.auth.resetPasswordForEmail(normalized,{redirectTo:`${window.location.origin}/entrar`})
-  if(error)throw error
+export async function requestPasswordReset(email: string) {
+  const normalized = email.trim().toLowerCase()
+  if (!normalized) throw new Error('Digite seu e-mail primeiro.')
+  const { error } = await supabase.auth.resetPasswordForEmail(normalized, { redirectTo: `${window.location.origin}/entrar` })
+  if (error) throw error
 }
 
-export async function resendConfirmation(email:string){
-  const normalized=email.trim().toLowerCase()
-  if(!normalized)throw new Error('Digite seu e-mail primeiro.')
-  const {error}=await supabase.auth.resend({
-    type:'signup',
-    email:normalized,
-    options:{emailRedirectTo:`${window.location.origin}/entrar`},
+export async function resendConfirmation(email: string) {
+  const normalized = email.trim().toLowerCase()
+  if (!normalized) throw new Error('Digite seu e-mail primeiro.')
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: normalized,
+    options: { emailRedirectTo: `${window.location.origin}/entrar` },
   })
-  if(error)throw error
+  if (error) throw error
 }
 
 export async function signOut() {

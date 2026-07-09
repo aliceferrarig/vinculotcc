@@ -11,77 +11,111 @@ export type ProfessionalProfile = {
   price: number
   experience: number
   specialties: string[]
-  active: boolean
+}
+
+async function repairOwnProfile() {
+  const { error } = await supabase.rpc('garantir_meu_perfil')
+  if (error) throw new Error('Não foi possível sincronizar seu perfil. Rode reset-banco-vinculo.sql no Supabase.')
 }
 
 export async function getOwnProfessionalProfile(): Promise<ProfessionalProfile> {
-  const {data:{user}}=await supabase.auth.getUser()
-  if(!user)throw new Error('Usuário não autenticado.')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Usuário não autenticado.')
 
-  const {data,error}=await supabase.from('psicologos').select(`
-    id, crp, estado_crp, biografia, modalidade, valor_consulta, anos_experiencia, perfil_ativo,
+  await repairOwnProfile()
+
+  const { data, error } = await supabase.from('psicologos').select(`
+    id, crp, estado_crp, biografia, modalidade, valor_consulta, anos_experiencia,
     perfis(nome, foto_url),
     psicologo_especialidades(especialidades(nome))
-  `).eq('perfil_id',user.id).single()
-  if(error)throw error
+  `).eq('perfil_id', user.id).maybeSingle()
 
-  const profile=Array.isArray(data.perfis)?data.perfis[0]:data.perfis
+  if (error) throw error
+  if (!data) throw new Error('Perfil profissional não encontrado. Rode reset-banco-vinculo.sql no Supabase.')
+
+  const profile = Array.isArray(data.perfis) ? data.perfis[0] : data.perfis
   return {
-    id:data.id,
-    name:profile?.nome??'',
-    avatarUrl:profile?.foto_url??null,
-    crp:data.crp,
-    crpState:data.estado_crp,
-    bio:data.biografia??'',
-    modality:data.modalidade,
-    price:Number(data.valor_consulta),
-    experience:data.anos_experiencia,
-    active:Boolean(data.perfil_ativo),
-    specialties:(data.psicologo_especialidades??[]).map((item:any)=>Array.isArray(item.especialidades)?item.especialidades[0]?.nome:item.especialidades?.nome).filter(Boolean),
+    id: data.id,
+    name: profile?.nome ?? '',
+    avatarUrl: profile?.foto_url ?? null,
+    crp: data.crp,
+    crpState: data.estado_crp,
+    bio: data.biografia ?? '',
+    modality: data.modalidade,
+    price: Number(data.valor_consulta),
+    experience: data.anos_experiencia,
+    specialties: (data.psicologo_especialidades ?? [])
+      .map((item: any) => Array.isArray(item.especialidades) ? item.especialidades[0]?.nome : item.especialidades?.nome)
+      .filter(Boolean),
   }
 }
 
-export async function saveProfessionalProfile(profile:ProfessionalProfile){
-  const {data:{user}}=await supabase.auth.getUser()
-  if(!user)throw new Error('Usuário não autenticado.')
+export async function saveProfessionalProfile(profile: ProfessionalProfile) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Usuário não autenticado.')
 
-  const {error:profileError}=await supabase.from('perfis').update({nome:profile.name}).eq('id',user.id)
-  if(profileError)throw profileError
+  await repairOwnProfile()
 
-  const shouldBeActive=Boolean(profile.avatarUrl)
-  const {error:psychError}=await supabase.from('psicologos').update({
-    crp:profile.crp,
-    estado_crp:profile.crpState,
-    biografia:profile.bio,
-    modalidade:profile.modality,
-    valor_consulta:profile.price,
-    anos_experiencia:profile.experience,
-    perfil_ativo:shouldBeActive,
-  }).eq('id',profile.id)
-  if(psychError)throw psychError
+  const { error: profileError } = await supabase
+    .from('perfis')
+    .update({ nome: profile.name })
+    .eq('id', user.id)
+  if (profileError) throw profileError
 
-  const {data:specialties,error:specialtyError}=await supabase.from('especialidades').select('id,nome').in('nome',profile.specialties)
-  if(specialtyError)throw specialtyError
-  const {error:deleteError}=await supabase.from('psicologo_especialidades').delete().eq('psicologo_id',profile.id)
-  if(deleteError)throw deleteError
-  if(specialties?.length){
-    const {error:insertError}=await supabase.from('psicologo_especialidades').insert(specialties.map(item=>({psicologo_id:profile.id,especialidade_id:item.id})))
-    if(insertError)throw insertError
+  const { error: psychError } = await supabase.from('psicologos').update({
+    crp: profile.crp,
+    estado_crp: profile.crpState,
+    biografia: profile.bio,
+    modalidade: profile.modality,
+    valor_consulta: profile.price,
+    anos_experiencia: profile.experience,
+    perfil_ativo: true,
+  }).eq('id', profile.id)
+  if (psychError) throw psychError
+
+  const { data: specialties, error: specialtyError } = await supabase
+    .from('especialidades')
+    .select('id,nome')
+    .in('nome', profile.specialties)
+  if (specialtyError) throw specialtyError
+
+  const { error: deleteError } = await supabase
+    .from('psicologo_especialidades')
+    .delete()
+    .eq('psicologo_id', profile.id)
+  if (deleteError) throw deleteError
+
+  if (specialties?.length) {
+    const { error: insertError } = await supabase
+      .from('psicologo_especialidades')
+      .insert(specialties.map(item => ({ psicologo_id: profile.id, especialidade_id: item.id })))
+    if (insertError) throw insertError
   }
 }
 
-export async function uploadProfessionalAvatar(file:File){
-  const {data:{user}}=await supabase.auth.getUser()
-  if(!user)throw new Error('Usuário não autenticado.')
-  const extension=file.name.split('.').pop()?.toLowerCase()||'jpg'
-  const path=`${user.id}/perfil-${Date.now()}.${extension}`
-  const {error}=await supabase.storage.from('avatars').upload(path,file,{upsert:true})
-  if(error)throw error
-  const {data}=supabase.storage.from('avatars').getPublicUrl(path)
-  const {error:updateError}=await supabase.from('perfis').update({foto_url:data.publicUrl}).eq('id',user.id)
-  if(updateError)throw updateError
-  const {error:publishError}=await supabase.from('psicologos').update({perfil_ativo:true}).eq('perfil_id',user.id)
-  if(publishError)throw publishError
-  window.dispatchEvent(new Event('vinculo:profile-updated'))
+export async function uploadProfessionalAvatar(file: File) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Usuário não autenticado.')
+
+  await repairOwnProfile()
+
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const path = `${user.id}/perfil-${Date.now()}.${extension}`
+  const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+  if (error) throw error
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+  const { error: updateError } = await supabase
+    .from('perfis')
+    .update({ foto_url: data.publicUrl })
+    .eq('id', user.id)
+  if (updateError) throw updateError
+
+  const { error: publishError } = await supabase
+    .from('psicologos')
+    .update({ perfil_ativo: true })
+    .eq('perfil_id', user.id)
+  if (publishError) throw publishError
+
   return data.publicUrl
 }
